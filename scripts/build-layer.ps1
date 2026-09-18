@@ -24,6 +24,7 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 
 python -m pip install `
     --platform manylinux2014_x86_64 `
+    --platform manylinux_2_28_x86_64 `
     --implementation cp `
     --python-version 3.12 `
     --only-binary=:all: `

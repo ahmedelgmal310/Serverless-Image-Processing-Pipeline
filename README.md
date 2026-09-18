@@ -12,6 +12,14 @@ There are no servers, no VPC, no load balancer and nothing to patch. Everything 
 this repository is defined in a single CloudFormation/SAM template and deploys with
 one command.
 
+### 🔗 Live demo — https://d3l1cbrdqvb1hz.cloudfront.net
+
+Drop in a photo and watch the five pipeline stages run. Measured on the deployed
+stack: a 2720×1780 PNG settled to `COMPLETED` in **6.7 seconds**, producing a
+320×320 thumbnail, a 1280×838 display copy and a watermarked copy. The two resize
+branches entered at the same millisecond (`15:48:44.578`), confirming the `Parallel`
+state fans out rather than running sequentially.
+
 ---
 
 ## Contents
@@ -243,7 +251,7 @@ for the workings. Prices are us-east-1 list prices and are estimates, not a quot
 | An AWS account | The Free Tier covers this project |
 | [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) | Run `aws configure` with an access key, or `aws configure sso` |
 | [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) | Builds and deploys the template |
-| Python 3.9+ | Only used locally, to download the Lambda layer wheel |
+| Python 3.9+ | Only used locally, to download the Lambda layer wheel. `sam build` needs no local Python: these functions declare no pip dependencies, because Pillow arrives through the layer |
 
 Docker is **not** required. `scripts/build-layer.*` asks pip for the Linux `manylinux`
 wheel explicitly, so the layer builds correctly from Windows or macOS.
