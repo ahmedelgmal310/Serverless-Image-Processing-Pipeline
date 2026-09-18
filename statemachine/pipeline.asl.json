@@ -1,0 +1,267 @@
+{
+  "Comment": "Image processing pipeline: validate -> resize (parallel) -> watermark -> store -> notify",
+  "StartAt": "Validate",
+  "States": {
+
+    "Validate": {
+      "Type": "Task",
+      "Comment": "Reject anything that is not a real, sane image before spending compute on it.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ValidateFunctionArn}",
+        "Payload.$": "$"
+      },
+      "OutputPath": "$.Payload",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "GenerateVariants"
+    },
+
+    "GenerateVariants": {
+      "Type": "Parallel",
+      "Comment": "Thumbnail and display-size renditions are independent, so run them at the same time.",
+      "ResultPath": "$.variants",
+      "Branches": [
+        {
+          "StartAt": "MakeThumbnail",
+          "States": {
+            "MakeThumbnail": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${ResizeFunctionArn}",
+                "Payload": {
+                  "imageId.$": "$.imageId",
+                  "bucket.$": "$.bucket",
+                  "key.$": "$.key",
+                  "variant": "thumbnail",
+                  "maxWidth": 320,
+                  "maxHeight": 320,
+                  "mode": "cover"
+                }
+              },
+              "OutputPath": "$.Payload",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "MakeMedium",
+          "States": {
+            "MakeMedium": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${ResizeFunctionArn}",
+                "Payload": {
+                  "imageId.$": "$.imageId",
+                  "bucket.$": "$.bucket",
+                  "key.$": "$.key",
+                  "variant": "medium",
+                  "maxWidth": 1280,
+                  "maxHeight": 1280,
+                  "mode": "contain"
+                }
+              },
+              "OutputPath": "$.Payload",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            }
+          }
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "Watermark"
+    },
+
+    "Watermark": {
+      "Type": "Task",
+      "Comment": "Burns the watermark onto the medium rendition produced by branch index 1.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${WatermarkFunctionArn}",
+        "Payload": {
+          "imageId.$": "$.imageId",
+          "sourceKey.$": "$.variants[1].key",
+          "variant": "watermarked"
+        }
+      },
+      "ResultSelector": {
+        "variant.$": "$.Payload.variant",
+        "key.$": "$.Payload.key",
+        "width.$": "$.Payload.width",
+        "height.$": "$.Payload.height",
+        "sizeBytes.$": "$.Payload.sizeBytes"
+      },
+      "ResultPath": "$.watermarked",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "StoreMetadata"
+    },
+
+    "StoreMetadata": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${StoreMetadataFunctionArn}",
+        "Payload": {
+          "imageId.$": "$.imageId",
+          "bucket.$": "$.bucket",
+          "key.$": "$.key",
+          "contentType.$": "$.contentType",
+          "format.$": "$.format",
+          "width.$": "$.width",
+          "height.$": "$.height",
+          "sizeBytes.$": "$.sizeBytes",
+          "variants.$": "$.variants",
+          "watermarked.$": "$.watermarked",
+          "status": "COMPLETED"
+        }
+      },
+      "ResultPath": "$.store",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "NotifySuccess"
+    },
+
+    "NotifySuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Subject": "Image processing completed",
+        "Message.$": "States.JsonToString($)"
+      },
+      "End": true
+    },
+
+    "MarkFailed": {
+      "Type": "Task",
+      "Comment": "Best-effort write of the failure so the UI can show why, then alert.",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${StoreMetadataFunctionArn}",
+        "Payload": {
+          "imageId.$": "$.imageId",
+          "status": "FAILED",
+          "error.$": "$.error"
+        }
+      },
+      "ResultPath": "$.store",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.storeError",
+          "Next": "NotifyFailure"
+        }
+      ],
+      "Next": "NotifyFailure"
+    },
+
+    "NotifyFailure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Subject": "Image processing FAILED",
+        "Message.$": "States.JsonToString($)"
+      },
+      "ResultPath": "$.notify",
+      "Next": "FailExecution"
+    },
+
+    "FailExecution": {
+      "Type": "Fail",
+      "Error": "ImageProcessingFailed",
+      "Cause": "The pipeline could not process this image. See the execution history and the DynamoDB record for details."
+    }
+  }
+}

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Serverless Image Pipeline</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --border: #dfe3e8;
+    --text: #16191d;
+    --muted: #5c6670;
+    --accent: #ff9900;
+    --accent-ink: #232f3e;
+    --ok: #1a7f37;
+    --bad: #b42318;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171c;
+      --surface: #1d2129;
+      --border: #2e3440;
+      --text: #eceff4;
+      --muted: #9aa5b1;
+      --accent-ink: #eceff4;
+      --ok: #4ac26b;
+      --bad: #ff6b5e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 32px 16px 64px; }
+  header { margin-bottom: 28px; }
+  h1 { font-size: 1.6rem; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0; font-size: 0.95rem; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  #drop {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  #drop.hot { border-color: var(--accent); background: rgba(255,153,0,.07); }
+  #drop p { margin: 6px 0; }
+  #drop .hint { color: var(--muted); font-size: .875rem; }
+  input[type=file] { display: none; }
+  .btn {
+    display: inline-block;
+    background: var(--accent);
+    color: #232f3e;
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: .95rem;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    color: var(--muted);
+    font-size: .93rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .steps li:last-child { border-bottom: 0; }
+  .steps li.done { color: var(--text); }
+  .steps li.fail { color: var(--bad); }
+  .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--border); flex: none;
+  }
+  .steps li.done .dot { background: var(--ok); }
+  .steps li.fail .dot { background: var(--bad); }
+  .steps li.active .dot { background: var(--accent); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px;
+    margin-top: 4px;
+  }
+  figure { margin: 0; }
+  figure img {
+    width: 100%; height: auto; display: block;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--bg);
+  }
+  figcaption {
+    font-size: .8rem; color: var(--muted); margin-top: 6px;
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  figcaption b { color: var(--text); font-weight: 600; }
+  dl.meta {
+    display: grid; grid-template-columns: auto 1fr; gap: 4px 16px;
+    margin: 0; font-size: .875rem;
+  }
+  dl.meta dt { color: var(--muted); }
+  dl.meta dd { margin: 0; font-variant-numeric: tabular-nums; }
+  h2 { font-size: 1.05rem; margin: 0 0 14px; }
+  .err {
+    color: var(--bad); font-size: .9rem; margin: 10px 0 0;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .hidden { display: none; }
+  footer { color: var(--muted); font-size: .82rem; text-align: center; margin-top: 8px; }
+  code { font-size: .85em; background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Serverless Image Processing Pipeline</h1>
+    <p class="sub">Upload an image. S3 &rarr; SQS &rarr; Lambda &rarr; Step Functions produce a thumbnail,
+       a display rendition and a watermarked copy, served back over CloudFront.</p>
+  </header>
+
+  <div class="card">
+    <div id="drop" tabindex="0" role="button" aria-label="Choose an image to upload">
+      <p><strong>Drop an image here</strong> or click to choose one</p>
+      <p class="hint">JPEG, PNG, WebP or GIF &middot; up to 10 MB</p>
+      <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif">
+    </div>
+    <p class="err hidden" id="uploadError"></p>
+  </div>
+
+  <div class="card hidden" id="progressCard">
+    <h2>Pipeline</h2>
+    <ul class="steps" id="steps">
+      <li data-step="presign"><span class="dot"></span><span>Requesting a pre-signed URL from API Gateway</span></li>
+      <li data-step="upload"><span class="dot"></span><span>Uploading directly to the S3 source bucket</span></li>
+      <li data-step="queued"><span class="dot"></span><span>S3 event queued in SQS, workflow started</span></li>
+      <li data-step="processing"><span class="dot"></span><span>Step Functions: validate &rarr; resize &rarr; watermark</span></li>
+      <li data-step="done"><span class="dot"></span><span>Metadata written to DynamoDB, results on CloudFront</span></li>
+    </ul>
+    <p class="err hidden" id="jobError"></p>
+  </div>
+
+  <div class="card hidden" id="resultCard">
+    <h2>Results</h2>
+    <div class="grid" id="variants"></div>
+    <dl class="meta" id="meta" style="margin-top:18px"></dl>
+  </div>
+
+  <div class="card hidden" id="galleryCard">
+    <h2>Recently processed</h2>
+    <div class="grid" id="gallery"></div>
+  </div>
+
+  <footer>AWS Solutions Architect &ndash; Associate graduation project</footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // Served through CloudFront, /api/* is routed to API Gateway on the same
+  // origin. ?api=<url> lets you point the page at a different backend while
+  // testing locally.
+  const API = new URLSearchParams(location.search).get("api") || "/api";
+  const POLL_MS = 2000;
+  const POLL_TIMEOUT_MS = 120000;
+
+  const $ = (id) => document.getElementById(id);
+  const drop = $("drop"), fileInput = $("file");
+  const uploadError = $("uploadError"), jobError = $("jobError");
+  const progressCard = $("progressCard"), resultCard = $("resultCard");
+  const galleryCard = $("galleryCard");
+
+  const VARIANT_LABEL = {
+    thumbnail: "Thumbnail 320×320",
+    medium: "Medium ≤ 1280px",
+    watermarked: "Watermarked"
+  };
+
+  let busy = false;
+
+  function setStep(name, state) {
+    const li = document.querySelector(`.steps li[data-step="${name}"]`);
+    if (li) li.className = state;
+  }
+
+  function resetSteps() {
+    document.querySelectorAll(".steps li").forEach(li => (li.className = ""));
+    jobError.classList.add("hidden");
+    uploadError.classList.add("hidden");
+    resultCard.classList.add("hidden");
+  }
+
+  function showError(el, message) {
+    el.textContent = message;
+    el.classList.remove("hidden");
+  }
+
+  const kb = (bytes) =>
+    bytes >= 1048576
+      ? (bytes / 1048576).toFixed(2) + " MB"
+      : Math.round(bytes / 1024) + " KB";
+
+  async function readError(response, fallback) {
+    try {
+      const data = await response.json();
+      return data.message || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  async function createUpload(file) {
+    const response = await fetch(`${API}/uploads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: file.type,
+        sizeBytes: file.size
+      })
+    });
+    if (!response.ok) {
+      throw new Error(await readError(response, `Could not start the upload (HTTP ${response.status}).`));
+    }
+    return response.json();
+  }
+
+  function putToS3(url, file) {
+    // XHR rather than fetch: it reports upload progress.
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", url);
+      xhr.setRequestHeader("Content-Type", file.type);
+      xhr.onload = () =>
+        (xhr.status >= 200 && xhr.status < 300)
+          ? resolve()
+          : reject(new Error(`S3 rejected the upload (HTTP ${xhr.status}).`));
+      xhr.onerror = () => reject(new Error("Network error while uploading to S3."));
+      xhr.send(file);
+    });
+  }
+
+  async function pollUntilSettled(imageId) {
+    const deadline = Date.now() + POLL_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const response = await fetch(`${API}/images/${imageId}`, { cache: "no-store" });
+      if (response.ok) {
+        const record = await response.json();
+        if (record.status === "COMPLETED" || record.status === "FAILED") return record;
+        if (record.status === "PROCESSING") setStep("processing", "active");
+      }
+      await new Promise(r => setTimeout(r, POLL_MS));
+    }
+    throw new Error("Timed out waiting for the pipeline. Check the Step Functions console.");
+  }
+
+  function renderVariants(record) {
+    const container = $("variants");
+    container.innerHTML = "";
+    const byName = Object.fromEntries((record.variants || []).map(v => [v.variant, v]));
+
+    ["thumbnail", "medium", "watermarked"].forEach(name => {
+      const url = (record.urls || {})[name];
+      if (!url) return;
+      const info = byName[name] || {};
+      const figure = document.createElement("figure");
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = VARIANT_LABEL[name] || name;
+      img.loading = "lazy";
+      const caption = document.createElement("figcaption");
+      const label = document.createElement("b");
+      label.textContent = VARIANT_LABEL[name] || name;
+      const size = document.createElement("span");
+      size.textContent = info.width ? `${info.width}×${info.height} · ${kb(info.sizeBytes)}` : "";
+      caption.append(label, size);
+      figure.append(img, caption);
+      container.appendChild(figure);
+    });
+
+    const meta = $("meta");
+    meta.innerHTML = "";
+    const rows = [
+      ["Image ID", record.imageId],
+      ["Status", record.status],
+      ["Original", `${record.format} · ${record.width}×${record.height} · ${kb(record.sizeBytes || 0)}`],
+      ["Uploaded", record.uploadedAt],
+      ["Completed", record.completedAt || "—"],
+      ["Variants", String(record.variantCount ?? (record.variants || []).length)]
+    ];
+    for (const [term, value] of rows) {
+      const dt = document.createElement("dt");
+      dt.textContent = term;
+      const dd = document.createElement("dd");
+      dd.textContent = value ?? "—";
+      meta.append(dt, dd);
+    }
+    resultCard.classList.remove("hidden");
+  }
+
+  async function loadGallery() {
+    try {
+      const response = await fetch(`${API}/images?status=COMPLETED&limit=12`, { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      const gallery = $("gallery");
+      gallery.innerHTML = "";
+      (data.items || []).forEach(item => {
+        const url = (item.urls || {}).thumbnail;
+        if (!url) return;
+        const figure = document.createElement("figure");
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = `Processed image ${item.imageId}`;
+        img.loading = "lazy";
+        const caption = document.createElement("figcaption");
+        caption.textContent = item.completedAt || item.uploadedAt || "";
+        figure.append(img, caption);
+        gallery.appendChild(figure);
+      });
+      if (gallery.childElementCount) galleryCard.classList.remove("hidden");
+    } catch {
+      /* the gallery is a nicety - never let it break the upload flow */
+    }
+  }
+
+  async function run(file) {
+    if (busy) return;
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showError(uploadError, "That file is not an image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showError(uploadError, "That file is larger than 10 MB.");
+      return;
+    }
+
+    busy = true;
+    resetSteps();
+    progressCard.classList.remove("hidden");
+
+    try {
+      setStep("presign", "active");
+      const ticket = await createUpload(file);
+      setStep("presign", "done");
+
+      setStep("upload", "active");
+      await putToS3(ticket.uploadUrl, file);
+      setStep("upload", "done");
+
+      setStep("queued", "done");
+      setStep("processing", "active");
+
+      const record = await pollUntilSettled(ticket.imageId);
+
+      if (record.status === "FAILED") {
+        setStep("processing", "fail");
+        const detail = record.errorDetail || {};
+        showError(jobError, `Processing failed: ${detail.cause || detail.error || "unknown error"}`);
+      } else {
+        setStep("processing", "done");
+        setStep("done", "done");
+        renderVariants(record);
+        loadGallery();
+      }
+    } catch (error) {
+      const stillRunning = document.querySelector(".steps li.active");
+      if (stillRunning) stillRunning.className = "fail";
+      showError(jobError, error.message);
+    } finally {
+      busy = false;
+    }
+  }
+
+  drop.addEventListener("click", () => fileInput.click());
+  drop.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInput.click(); }
+  });
+  fileInput.addEventListener("change", () => run(fileInput.files[0]));
+
+  ["dragenter", "dragover"].forEach(type =>
+    drop.addEventListener(type, (e) => { e.preventDefault(); drop.classList.add("hot"); })
+  );
+  ["dragleave", "drop"].forEach(type =>
+    drop.addEventListener(type, (e) => { e.preventDefault(); drop.classList.remove("hot"); })
+  );
+  drop.addEventListener("drop", (e) => run(e.dataTransfer.files[0]));
+
+  loadGallery();
+})();
+</script>
+</body>
+</html>

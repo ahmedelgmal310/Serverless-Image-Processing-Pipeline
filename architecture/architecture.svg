@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 890" width="1360" height="890" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5C6670"/>
+    </marker>
+    <marker id="arrowDim" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#98A2AE"/>
+    </marker>
+  </defs>
+
+  <rect width="1360" height="890" fill="#FFFFFF"/>
+
+  <!-- ====================== title ====================== -->
+  <text x="28" y="44" font-size="23" font-weight="700" fill="#16191D">Serverless Image Processing Pipeline</text>
+  <text x="28" y="68" font-size="13.5" fill="#5C6670">S3 &#183; SQS &#183; Lambda &#183; Step Functions &#183; DynamoDB &#183; CloudFront &#8212; AWS Solutions Architect Associate graduation project</text>
+  <text x="1332" y="44" font-size="12" fill="#98A2AE" text-anchor="end">Region: us-east-1 &#183; single account &#183; no VPC required</text>
+  <text x="1332" y="66" font-size="12" fill="#98A2AE" text-anchor="end">All compute is regional and managed; no servers to patch</text>
+
+  <!-- ====================== BAND 1 : upload handshake ====================== -->
+  <rect x="28" y="96" width="1304" height="128" rx="12" fill="#F7F8FA" stroke="#E1E5EA"/>
+  <circle cx="52" cy="114" r="11" fill="#232F3E"/>
+  <text x="52" y="119" font-size="12.5" font-weight="700" fill="#FFFFFF" text-anchor="middle">1</text>
+  <text x="72" y="119" font-size="13.5" font-weight="700" fill="#16191D">Upload handshake &#8212; the browser asks for permission to upload</text>
+
+  <!-- browser -->
+  <rect x="52" y="134" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#5C6670" stroke-width="1.6"/>
+  <rect x="66" y="155" width="22" height="22" rx="5" fill="#5C6670"/>
+  <text x="98" y="162" font-size="13.5" font-weight="600" fill="#16191D">Web browser</text>
+  <text x="98" y="180" font-size="11.5" fill="#5C6670">POST /api/uploads</text>
+
+  <line x1="252" y1="166" x2="310" y2="166" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- cloudfront -->
+  <rect x="316" y="134" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#8C4FFF" stroke-width="1.6"/>
+  <rect x="330" y="155" width="22" height="22" rx="5" fill="#8C4FFF"/>
+  <text x="362" y="162" font-size="13.5" font-weight="600" fill="#16191D">CloudFront</text>
+  <text x="362" y="180" font-size="11.5" fill="#5C6670">/api/* &#8594; API Gateway</text>
+
+  <line x1="516" y1="166" x2="574" y2="166" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- api gateway -->
+  <rect x="580" y="134" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#E7157B" stroke-width="1.6"/>
+  <rect x="594" y="155" width="22" height="22" rx="5" fill="#E7157B"/>
+  <text x="626" y="162" font-size="13.5" font-weight="600" fill="#16191D">API Gateway</text>
+  <text x="626" y="180" font-size="11.5" fill="#5C6670">REST, throttled 25 rps</text>
+
+  <line x1="780" y1="166" x2="838" y2="166" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- presign lambda -->
+  <rect x="844" y="134" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#ED7100" stroke-width="1.6"/>
+  <rect x="858" y="155" width="22" height="22" rx="5" fill="#ED7100"/>
+  <text x="890" y="162" font-size="13.5" font-weight="600" fill="#16191D">Lambda: presign</text>
+  <text x="890" y="180" font-size="11.5" fill="#5C6670">returns pre-signed PUT URL</text>
+
+  <line x1="1044" y1="166" x2="1102" y2="166" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- dynamodb pending -->
+  <rect x="1108" y="134" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#C925D1" stroke-width="1.6"/>
+  <rect x="1122" y="155" width="22" height="22" rx="5" fill="#C925D1"/>
+  <text x="1154" y="162" font-size="13.5" font-weight="600" fill="#16191D">DynamoDB</text>
+  <text x="1154" y="180" font-size="11.5" fill="#5C6670">status = PENDING</text>
+
+  <!-- ====================== BAND 2 : direct upload + queue ====================== -->
+  <rect x="28" y="244" width="1304" height="172" rx="12" fill="#F7F8FA" stroke="#E1E5EA"/>
+  <circle cx="52" cy="262" r="11" fill="#232F3E"/>
+  <text x="52" y="267" font-size="12.5" font-weight="700" fill="#FFFFFF" text-anchor="middle">2</text>
+  <text x="72" y="267" font-size="13.5" font-weight="700" fill="#16191D">Ingest &#8212; bytes go straight to S3, the event is buffered in a queue</text>
+
+  <!-- browser -->
+  <rect x="52" y="282" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#5C6670" stroke-width="1.6"/>
+  <rect x="66" y="303" width="22" height="22" rx="5" fill="#5C6670"/>
+  <text x="98" y="310" font-size="13.5" font-weight="600" fill="#16191D">Web browser</text>
+  <text x="98" y="328" font-size="11.5" fill="#5C6670">HTTPS PUT, signed URL</text>
+
+  <line x1="252" y1="314" x2="574" y2="314" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="413" y="306" font-size="11" fill="#5C6670" text-anchor="middle">bypasses API Gateway &#8212; no payload limit, no Lambda cost</text>
+
+  <!-- s3 source -->
+  <rect x="580" y="282" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#7AA116" stroke-width="1.6"/>
+  <rect x="594" y="303" width="22" height="22" rx="5" fill="#7AA116"/>
+  <text x="626" y="310" font-size="13.5" font-weight="600" fill="#16191D">S3 source bucket</text>
+  <text x="626" y="328" font-size="11.5" fill="#5C6670">uploads/ &#183; expires after 30 d</text>
+
+  <line x1="780" y1="314" x2="838" y2="314" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+  <text x="809" y="306" font-size="10.5" fill="#5C6670" text-anchor="middle">event</text>
+
+  <!-- sqs -->
+  <rect x="844" y="282" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#E7157B" stroke-width="1.6"/>
+  <rect x="858" y="303" width="22" height="22" rx="5" fill="#E7157B"/>
+  <text x="890" y="310" font-size="13.5" font-weight="600" fill="#16191D">Amazon SQS</text>
+  <text x="890" y="328" font-size="10.8" fill="#5C6670">buffers bursts &#183; enables retries</text>
+
+  <!-- dlq -->
+  <line x1="944" y1="346" x2="944" y2="368" stroke="#98A2AE" stroke-width="1.4" marker-end="url(#arrowDim)"/>
+  <rect x="844" y="372" width="200" height="34" rx="8" fill="#FFFFFF" stroke="#98A2AE" stroke-width="1.3" stroke-dasharray="4 3"/>
+  <text x="944" y="393" font-size="11" fill="#5C6670" text-anchor="middle">Dead-letter queue &#183; after 3 receives</text>
+
+  <line x1="1044" y1="314" x2="1102" y2="314" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- consumer lambda -->
+  <rect x="1108" y="282" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#ED7100" stroke-width="1.6"/>
+  <rect x="1122" y="303" width="22" height="22" rx="5" fill="#ED7100"/>
+  <text x="1154" y="310" font-size="13.5" font-weight="600" fill="#16191D">Lambda: consumer</text>
+  <text x="1154" y="328" font-size="10.8" fill="#5C6670">StartExecution &#183; idempotent</text>
+
+  <!-- ====================== BAND 3 : workflow ====================== -->
+  <rect x="28" y="436" width="1304" height="212" rx="12" fill="#F7F8FA" stroke="#E1E5EA"/>
+  <circle cx="52" cy="454" r="11" fill="#232F3E"/>
+  <text x="52" y="459" font-size="12.5" font-weight="700" fill="#FFFFFF" text-anchor="middle">3</text>
+  <text x="72" y="459" font-size="13.5" font-weight="700" fill="#16191D">AWS Step Functions &#8212; Standard workflow, one execution per image</text>
+  <text x="1308" y="459" font-size="11.5" fill="#98A2AE" text-anchor="end">every Task has Retry + Catch &#8594; failure path</text>
+
+  <!-- validate -->
+  <rect x="52" y="508" width="180" height="64" rx="10" fill="#FFFFFF" stroke="#ED7100" stroke-width="1.6"/>
+  <rect x="66" y="529" width="22" height="22" rx="5" fill="#ED7100"/>
+  <text x="98" y="536" font-size="13" font-weight="600" fill="#16191D">Validate</text>
+  <text x="98" y="554" font-size="11" fill="#5C6670">decode + pixel-bomb guard</text>
+
+  <line x1="232" y1="540" x2="282" y2="540" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- parallel container -->
+  <rect x="288" y="484" width="280" height="114" rx="10" fill="#FFFFFF" stroke="#E7157B" stroke-width="1.6" stroke-dasharray="5 4"/>
+  <text x="428" y="499" font-size="10.5" font-weight="600" fill="#E7157B" text-anchor="middle">PARALLEL STATE</text>
+  <rect x="304" y="504" width="248" height="42" rx="8" fill="#FFFFFF" stroke="#ED7100" stroke-width="1.4"/>
+  <rect x="316" y="515" width="18" height="18" rx="4" fill="#ED7100"/>
+  <text x="344" y="522" font-size="12" font-weight="600" fill="#16191D">Resize &#8594; thumbnail</text>
+  <text x="344" y="537" font-size="10.5" fill="#5C6670">320&#215;320, cropped to fill</text>
+  <rect x="304" y="550" width="248" height="42" rx="8" fill="#FFFFFF" stroke="#ED7100" stroke-width="1.4"/>
+  <rect x="316" y="561" width="18" height="18" rx="4" fill="#ED7100"/>
+  <text x="344" y="568" font-size="12" font-weight="600" fill="#16191D">Resize &#8594; medium</text>
+  <text x="344" y="583" font-size="10.5" fill="#5C6670">&#8804; 1280 px, aspect kept</text>
+
+  <line x1="568" y1="540" x2="618" y2="540" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- watermark -->
+  <rect x="624" y="508" width="180" height="64" rx="10" fill="#FFFFFF" stroke="#ED7100" stroke-width="1.6"/>
+  <rect x="638" y="529" width="22" height="22" rx="5" fill="#ED7100"/>
+  <text x="670" y="536" font-size="13" font-weight="600" fill="#16191D">Watermark</text>
+  <text x="670" y="554" font-size="10.8" fill="#5C6670">burned onto the medium copy</text>
+
+  <line x1="804" y1="540" x2="854" y2="540" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- store -->
+  <rect x="860" y="508" width="180" height="64" rx="10" fill="#FFFFFF" stroke="#ED7100" stroke-width="1.6"/>
+  <rect x="874" y="529" width="22" height="22" rx="5" fill="#ED7100"/>
+  <text x="906" y="536" font-size="13" font-weight="600" fill="#16191D">Store metadata</text>
+  <text x="906" y="554" font-size="11" fill="#5C6670">status = COMPLETED</text>
+
+  <line x1="1040" y1="540" x2="1090" y2="540" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- notify -->
+  <rect x="1096" y="508" width="180" height="64" rx="10" fill="#FFFFFF" stroke="#E7157B" stroke-width="1.6"/>
+  <rect x="1110" y="529" width="22" height="22" rx="5" fill="#E7157B"/>
+  <text x="1142" y="536" font-size="13" font-weight="600" fill="#16191D">Amazon SNS</text>
+  <text x="1142" y="554" font-size="11" fill="#5C6670">publish job result</text>
+
+  <!-- side sinks for band 3 -->
+  <text x="52" y="628" font-size="11.5" fill="#5C6670">Renditions are written to the processed S3 bucket &#183; metadata and variant keys land in DynamoDB &#183; a failed step writes status = FAILED and still notifies</text>
+
+  <!-- ====================== BAND 4 : delivery + ops ====================== -->
+  <rect x="28" y="668" width="1304" height="150" rx="12" fill="#F7F8FA" stroke="#E1E5EA"/>
+  <circle cx="52" cy="686" r="11" fill="#232F3E"/>
+  <text x="52" y="691" font-size="12.5" font-weight="700" fill="#FFFFFF" text-anchor="middle">4</text>
+  <text x="72" y="691" font-size="13.5" font-weight="700" fill="#16191D">Delivery &amp; operations</text>
+
+  <!-- processed bucket -->
+  <rect x="52" y="710" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#7AA116" stroke-width="1.6"/>
+  <rect x="66" y="731" width="22" height="22" rx="5" fill="#7AA116"/>
+  <text x="98" y="738" font-size="13.5" font-weight="600" fill="#16191D">S3 processed bucket</text>
+  <text x="98" y="756" font-size="11.5" fill="#5C6670">private &#183; OAC only</text>
+
+  <line x1="252" y1="742" x2="310" y2="742" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- cloudfront -->
+  <rect x="316" y="710" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#8C4FFF" stroke-width="1.6"/>
+  <rect x="330" y="731" width="22" height="22" rx="5" fill="#8C4FFF"/>
+  <text x="362" y="738" font-size="13.5" font-weight="600" fill="#16191D">CloudFront</text>
+  <text x="362" y="756" font-size="11.5" fill="#5C6670">/images/* &#183; cached 1 year</text>
+
+  <line x1="516" y1="742" x2="574" y2="742" stroke="#5C6670" stroke-width="1.6" marker-end="url(#arrow)"/>
+
+  <!-- viewer -->
+  <rect x="580" y="710" width="200" height="64" rx="10" fill="#FFFFFF" stroke="#5C6670" stroke-width="1.6"/>
+  <rect x="594" y="731" width="22" height="22" rx="5" fill="#5C6670"/>
+  <text x="626" y="738" font-size="13.5" font-weight="600" fill="#16191D">Viewer</text>
+  <text x="626" y="756" font-size="10.8" fill="#5C6670">three renditions over HTTPS</text>
+
+  <!-- observability panel -->
+  <rect x="860" y="704" width="448" height="92" rx="10" fill="#FFFFFF" stroke="#01A88D" stroke-width="1.6"/>
+  <rect x="876" y="718" width="22" height="22" rx="5" fill="#01A88D"/>
+  <text x="908" y="734" font-size="13" font-weight="600" fill="#16191D">Observability &amp; guardrails</text>
+  <text x="876" y="757" font-size="11.5" fill="#5C6670">CloudWatch Logs + alarms on DLQ depth and workflow failures</text>
+  <text x="876" y="775" font-size="11.5" fill="#5C6670">AWS X-Ray traces API Gateway &#8594; Lambda &#8594; Step Functions</text>
+  <text x="876" y="789" font-size="11.5" fill="#5C6670">IAM least privilege per function &#183; SSE on every bucket, queue and table</text>
+
+  <!-- ====================== legend ====================== -->
+  <text x="28" y="856" font-size="11.5" font-weight="600" fill="#5C6670">Service categories</text>
+  <rect x="168" y="847" width="12" height="12" rx="3" fill="#ED7100"/><text x="186" y="857" font-size="11.5" fill="#5C6670">Compute</text>
+  <rect x="266" y="847" width="12" height="12" rx="3" fill="#7AA116"/><text x="284" y="857" font-size="11.5" fill="#5C6670">Storage</text>
+  <rect x="356" y="847" width="12" height="12" rx="3" fill="#E7157B"/><text x="374" y="857" font-size="11.5" fill="#5C6670">Application integration</text>
+  <rect x="524" y="847" width="12" height="12" rx="3" fill="#C925D1"/><text x="542" y="857" font-size="11.5" fill="#5C6670">Database</text>
+  <rect x="620" y="847" width="12" height="12" rx="3" fill="#8C4FFF"/><text x="638" y="857" font-size="11.5" fill="#5C6670">Networking &amp; content delivery</text>
+  <rect x="832" y="847" width="12" height="12" rx="3" fill="#01A88D"/><text x="850" y="857" font-size="11.5" fill="#5C6670">Management &amp; governance</text>
+  <text x="1332" y="857" font-size="11.5" fill="#98A2AE" text-anchor="end">Every resource in this diagram is defined in template.yaml</text>
+</svg>

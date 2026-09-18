@@ -1,0 +1,2 @@
+# Contents of the Lambda layer. Pinned so a rebuild produces the same layer.
+Pillow==11.3.0

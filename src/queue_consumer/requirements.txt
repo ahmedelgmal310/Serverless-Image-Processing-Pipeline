@@ -1,0 +1,2 @@
+# No extra dependencies: boto3 ships with the Lambda runtime and
+# Pillow arrives through the shared layer.

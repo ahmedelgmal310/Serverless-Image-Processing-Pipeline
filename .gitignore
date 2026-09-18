@@ -1,0 +1,20 @@
+# SAM build output
+.aws-sam/
+
+# The Pillow layer is built by scripts/build-layer.* - never commit binaries
+layers/pillow/python/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local tooling
+samconfig.toml
+.env
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
